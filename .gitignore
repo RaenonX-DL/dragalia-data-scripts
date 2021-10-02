@@ -1,0 +1,6 @@
+# Project files
+.idea/
+.wakatime-project
+
+# Downloaded files
+download-all-assets/downloaded
