@@ -1,11 +1,12 @@
 # Use `x` to avoid `*` usage conflict in markdown
 DRAGON_FORMULA: dict[str, str] = {
-    "亞森": "(1.5) x (1 + <PASSIVE_ATK>)",
-    "巴哈姆特": "(1.5) x (1 + 1.2 + <PASSIVE_ATK>)",
-    "尼德．勇": "(1.5 + 0.3) x (1 + 0.7 + <PASSIVE_ATK>)",
+    "貓": "(1 + 0.4) x (1 + 1.8) x (1.5) x (1 + <PASSIVE_ATK>)",
+    "亞森": "(1 + 0.4 + 1.8) x (1.5) x (1 + <PASSIVE_ATK>)",
+    "巴哈姆特": "(1 + 0.4) x (1.5) x (1 + 1.2 + <PASSIVE_ATK>)",
+    "尼德．勇": "(1 + 0.4) x (1.5 + 0.3) x (1 + 0.7 + <PASSIVE_ATK>)",
 }
 
-TITLE: str = "龍族"
+TITLE: str = "ATK+"
 
 PASSIVE_ATKS: list[float] = [0, 0.13, 0.20, 0.21, 0.28]
 
@@ -19,26 +20,28 @@ def replace_passive_atk(formula: str, passive_atk: float) -> str:
 
 
 def main():
-    print(f"{TITLE} | {' | '.join(f'+{passive_atk:2.0%}' for passive_atk in PASSIVE_ATKS)}")
-    print(" | ".join(':---:' for _ in range(1 + len(PASSIVE_ATKS))))
+    print(f"{TITLE} | {' | '.join(f':{dragon}:' for dragon in DRAGON_FORMULA.keys())}")
+    print(" | ".join(':---:' for _ in range(1 + len(DRAGON_FORMULA))))
 
-    max_efficiency_of_atk = {
-        passive_atk: max(
-            (
-                (dragon, formula, eval(replace_passive_atk(prepare_for_eval(formula), passive_atk)))
-                for dragon, formula in DRAGON_FORMULA.items()
-            ),
-            key=lambda item: item[2]
+    efficiency = {
+        passive_atk: tuple(
+            (dragon, formula, eval(replace_passive_atk(prepare_for_eval(formula), passive_atk)))
+            for dragon, formula in DRAGON_FORMULA.items()
         )
         for passive_atk in PASSIVE_ATKS
     }
 
-    for dragon, formula_og in DRAGON_FORMULA.items():
-        print(f":{dragon}:", end="")
+    max_efficiency_of_atk = {
+        passive_atk: max(efficiency[passive_atk], key=lambda item: item[1][2])
+        for passive_atk in PASSIVE_ATKS
+    }
 
-        for passive_atk in PASSIVE_ATKS:
-            max_dragon, max_formula, max_result = max_efficiency_of_atk[passive_atk]
+    for passive_atk in PASSIVE_ATKS:
+        max_dragon, max_formula, max_result = max_efficiency_of_atk[passive_atk]
 
+        print(f"+{passive_atk:2.0%}", end="")
+
+        for dragon, formula_og in DRAGON_FORMULA.items():
             if max_dragon == dragon:
                 print(f" | -", end="")
                 continue
