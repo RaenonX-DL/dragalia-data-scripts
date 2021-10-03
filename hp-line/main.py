@@ -121,28 +121,59 @@ def sanitize_hp_data(hp_data_raw: list[Optional[float]]) -> list[float]:
     return hp_data_stripped
 
 
+def transform_hp_data(hp_data: list[float]) -> list[float]:
+    return [hp_data_single * 100 for hp_data_single in hp_data]
+
+
+def hp_to_dps(hp_data: list[float]) -> list[float]:
+    dps_data: list[float] = [0]
+    period = 25
+
+    for idx in range(1, len(hp_data)):
+        prev_idx = max(0, idx - period)
+
+        dps_data.append((hp_data[prev_idx] - hp_data[idx]) / (idx - prev_idx))
+
+    return dps_data
+
+
+def plot_data_collection(data_collection: dict[str, list[float]], title: str) -> None:
+    sns.set(
+        font="Microsoft JhengHei",  # Unicode characters cannot render if font is not set
+        rc={"figure.figsize": (12, 8)},
+    )
+    plot = sns.lineplot(data=data_collection)
+
+    plot.set(
+        xlabel="經過秒數 / Sec. Passed",
+        ylabel="HP %",
+        title=title,
+    )
+
+    plt.legend(frameon=False)
+    plt.tight_layout()
+    plt.show()
+
+
 def main() -> None:
     # for video_path in VIDEOS.keys():
     #     export_frames(video_path)
 
     all_hp_data: dict[str, list[float]] = {}
+    all_dps_data: dict[str, list[float]] = {}
 
     for video_path, name in VIDEOS.items():
         video_name = get_video_name(video_path)
 
         hp_data = load_hp_data_raw(video_name)
         hp_data = sanitize_hp_data(hp_data)
+        hp_data = transform_hp_data(hp_data)
 
         all_hp_data[name] = hp_data
+        all_dps_data[name] = hp_to_dps(hp_data)
 
-    sns.set(
-        font="Microsoft JhengHei",
-        rc={"figure.figsize": (12, 8)},
-    )
-    sns.lineplot(data=all_hp_data)
-
-    plt.tight_layout()
-    plt.show()
+    plot_data_collection(all_hp_data, "阿修羅 超級 P1 (老王) 血線變化 / Master Asura P1 HP as Alberius")
+    plot_data_collection(all_dps_data, "阿修羅 超級 P1 (老王) DPS / Master Asura P1 DPS as Alberius")
 
 
 if __name__ == '__main__':
