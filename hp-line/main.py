@@ -103,7 +103,7 @@ def load_hp_data_raw(video_name: str) -> list[Optional[float]]:
     return ret
 
 
-def sanitize_hp_data(hp_data_raw: list[Optional[float]]) -> list[float]:
+def sanitize_hp_data(hp_data_raw: list[Optional[float]]) -> list[Optional[float]]:
     not_none_idx_first = next(
         idx for idx, hp_data in enumerate(hp_data_raw)
         if hp_data is not None
@@ -116,30 +116,6 @@ def sanitize_hp_data(hp_data_raw: list[Optional[float]]) -> list[float]:
     # Strip `None` of head nad tail
     hp_data_stripped = hp_data_raw[not_none_idx_first:not_none_idx_last + 1]
 
-    prev_none_idx = None
-    for idx in range(len(hp_data_stripped)):
-        if current_hp := hp_data_stripped[idx]:
-            # Data point available
-            if not prev_none_idx:
-                continue
-
-            prev_available_idx = prev_none_idx - 1
-            if prev_none_idx > 0:
-                prev_available_hp = hp_data_stripped[prev_available_idx]
-            else:
-                prev_available_hp = 1
-
-            step = (prev_available_hp - current_hp) / (idx - prev_available_idx)
-            for step_count, idx_fill in enumerate(range(prev_none_idx, idx), start=1):
-                hp_data_stripped[idx_fill] = prev_available_hp - step * step_count
-
-            prev_none_idx = None
-            continue
-
-        # Data point unavailable
-        if prev_none_idx is None:  # First unavailable data point, record it
-            prev_none_idx = idx
-
     return hp_data_stripped
 
 
@@ -148,16 +124,50 @@ def smooth_hp_data(hp_data: list[float]) -> list[float]:
     for idx in range(1, len(hp_data)):
         prev, curr = hp_data[idx - 1], hp_data[idx]
 
+        if not prev or not curr:
+            continue  # `prev` or `curr` could be `None`
+
         hp_data[idx] = min(prev, curr)
 
     return hp_data
 
 
-def data_times_100(data: list[float]) -> list[float]:
-    return [data_single * 100 for data_single in data]
+def fill_gap(data: list[Optional[float]]) -> list[float]:
+    data = data.copy()
+
+    prev_none_idx = None
+    for idx in range(len(data)):
+        if current_hp := data[idx]:
+            # Data point available
+            if not prev_none_idx:
+                continue
+
+            prev_available_idx = prev_none_idx - 1
+            if prev_none_idx > 0:
+                prev_available_hp = data[prev_available_idx]
+            else:
+                prev_available_hp = 1
+
+            step = (prev_available_hp - current_hp) / (idx - prev_available_idx)
+            for step_count, idx_fill in enumerate(range(prev_none_idx, idx), start=1):
+                data[idx_fill] = prev_available_hp - step * step_count
+
+            prev_none_idx = None
+            continue
+
+        # Data point unavailable
+        if prev_none_idx is None:  # First unavailable data point, record it
+            prev_none_idx = idx
+
+    return data
+
+
+def data_times_100(data: list[Optional[float]]) -> list[Optional[float]]:
+    return [data_single * 100 if data_single else data_single for data_single in data]
 
 
 def hp_to_dps(hp_data: list[float]) -> list[float]:
+    hp_data = fill_gap(hp_data)
     dps_data: list[float] = [0]
     period = 25
 
@@ -169,12 +179,15 @@ def hp_to_dps(hp_data: list[float]) -> list[float]:
     return dps_data
 
 
-def plot_data_collection(data_collection: dict[str, list[float]], title: str) -> None:
+def plot_data_collection(
+        data_collection: dict[str, list[float]], title: str,
+        show_marker: bool = False,
+) -> None:
     sns.set(
         font="Microsoft JhengHei",  # Unicode characters cannot render if font is not set
         rc={"figure.figsize": (12, 8)},
     )
-    plot = sns.lineplot(data=data_collection)
+    plot = sns.lineplot(data=data_collection, marker="o" if show_marker else None)
 
     plot.set(
         xlabel="經過秒數 / Sec. Passed",
@@ -192,7 +205,7 @@ def main() -> None:
     #     print(f"Exporting frames of {video_path}...")
     #     export_frames(video_path)
 
-    all_hp_data: dict[str, list[float]] = {}
+    all_hp_data: dict[str, list[Optional[float]]] = {}
     all_dps_data: dict[str, list[float]] = {}
 
     for video_path, name in VIDEOS.items():
@@ -206,8 +219,15 @@ def main() -> None:
         all_hp_data[name] = hp_data
         all_dps_data[name] = hp_to_dps(hp_data)
 
-    plot_data_collection(all_hp_data, "火寶龍 60F 血量變化 (Manual) / Flame MG 60F HP (Manual)")
-    plot_data_collection(all_dps_data, "火寶龍 60F DPS (Manual) / Flame MG 60F DPS (Manual)")
+    plot_data_collection(
+        all_hp_data,
+        "火寶龍 60F 血量變化 (Manual) / Flame MG 60F HP (Manual)",
+        show_marker=True
+    )
+    plot_data_collection(
+        all_dps_data,
+        "火寶龍 60F DPS (Manual) / Flame MG 60F DPS (Manual)"
+    )
 
 
 if __name__ == '__main__':
