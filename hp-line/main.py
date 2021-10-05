@@ -9,15 +9,15 @@ import seaborn as sns
 PROCESS_DIR = ".process"
 
 VIDEOS: dict[str, str] = {
-    r"D:\UserData\Videos\Streamed\Process\A.mp4": "亞森 / Arsene",
-    r"D:\UserData\Videos\Streamed\Process\B.mp4": "巴哈姆特 / Bahamut",
-    r"D:\UserData\Videos\Streamed\Process\R.mp4": "尼德．勇 / R!Nidhogg",
+    r"D:\UserData\Videos\Streamed\Process\.Manual.HMerc.mp4-clip.mp4-audio-2.mp4-crop.mp4": "人形墨丘利 / Humanoid Mercury",
+    r"D:\UserData\Videos\Streamed\Process\.Manual.Regina.mp4-clip.mp4-audio-2.mp4-crop.mp4": "柯恩 / Regina",
+    r"D:\UserData\Videos\Streamed\Process\.Manual.SIeyasu.mp4-clip.mp4-audio-2.mp4-crop.mp4": "夏日家康 / Summer Ieyasu",
 }
 
 HP_RECT: tuple[int, int, int, int] = (212, 77, 712, 82)  # LT-X, LT-Y, RB-X, RB-Y
 HP_WIDTH: int = HP_RECT[2] - HP_RECT[0]
 
-REDNESS_THRESHOLD = 50
+REDNESS_THRESHOLD = 190
 
 Color = tuple[int, int, int]  # RGB
 
@@ -38,7 +38,7 @@ def get_redness(color: Color) -> float:
     return color[0] - max(color[1], color[2])
 
 
-def average_image_color(image: Image) -> tuple[int, int, int]:
+def get_highest_channel_index(image: Image) -> int:
     # Obtained from https://gist.github.com/olooney/1246268
     h = image.histogram()
 
@@ -49,20 +49,19 @@ def average_image_color(image: Image) -> tuple[int, int, int]:
 
     # perform the weighted average of each channel:
     # the *index* is the channel value, and the *value* is its weight
-    return (
+    weights = (
         sum(i * w for i, w in enumerate(r)) / sum(r),
         sum(i * w for i, w in enumerate(g)) / sum(g),
         sum(i * w for i, w in enumerate(b)) / sum(b)
     )
 
+    return weights.index(max(weights))
+
 
 def is_hp_bar_available(image: Image) -> bool:
     image_hp_bar = image.crop(HP_RECT)
 
-    weights = average_image_color(image_hp_bar)
-    max_weight = max(weights)
-
-    return weights.index(max_weight) == 0
+    return get_highest_channel_index(image_hp_bar) == 0
 
 
 def load_hp_of_index(video_name: str, index: int) -> Optional[float]:
@@ -105,24 +104,57 @@ def load_hp_data_raw(video_name: str) -> list[Optional[float]]:
 
 
 def sanitize_hp_data(hp_data_raw: list[Optional[float]]) -> list[float]:
-    not_none_idx_first = next(idx for idx, hp_data in enumerate(hp_data_raw) if hp_data is not None)
-    not_none_idx_last = next(idx for idx, hp_data in reversed(list(enumerate(hp_data_raw))) if hp_data is not None)
+    not_none_idx_first = next(
+        idx for idx, hp_data in enumerate(hp_data_raw)
+        if hp_data is not None
+    )
+    not_none_idx_last = next(
+        idx for idx, hp_data in reversed(list(enumerate(hp_data_raw)))
+        if hp_data is not None
+    )
 
+    # Strip `None` of head nad tail
     hp_data_stripped = hp_data_raw[not_none_idx_first:not_none_idx_last + 1]
 
-    prev_data = hp_data_stripped[0]
+    prev_none_idx = None
     for idx in range(len(hp_data_stripped)):
-        if hp_data := hp_data_stripped[idx]:
-            prev_data = hp_data
+        if current_hp := hp_data_stripped[idx]:
+            # Data point available
+            if not prev_none_idx:
+                continue
+
+            prev_available_idx = prev_none_idx - 1
+            if prev_none_idx > 0:
+                prev_available_hp = hp_data_stripped[prev_available_idx]
+            else:
+                prev_available_hp = 1
+
+            step = (prev_available_hp - current_hp) / (idx - prev_available_idx)
+            for step_count, idx_fill in enumerate(range(prev_none_idx, idx), start=1):
+                hp_data_stripped[idx_fill] = prev_available_hp - step * step_count
+
+            prev_none_idx = None
             continue
 
-        hp_data_stripped[idx] = prev_data
+        # Data point unavailable
+        if prev_none_idx is None:  # First unavailable data point, record it
+            prev_none_idx = idx
 
     return hp_data_stripped
 
 
-def transform_hp_data(hp_data: list[float]) -> list[float]:
-    return [hp_data_single * 100 for hp_data_single in hp_data]
+def smooth_hp_data(hp_data: list[float]) -> list[float]:
+    # Ensure decreasing
+    for idx in range(1, len(hp_data)):
+        prev, curr = hp_data[idx - 1], hp_data[idx]
+
+        hp_data[idx] = min(prev, curr)
+
+    return hp_data
+
+
+def data_times_100(data: list[float]) -> list[float]:
+    return [data_single * 100 for data_single in data]
 
 
 def hp_to_dps(hp_data: list[float]) -> list[float]:
@@ -157,6 +189,7 @@ def plot_data_collection(data_collection: dict[str, list[float]], title: str) ->
 
 def main() -> None:
     # for video_path in VIDEOS.keys():
+    #     print(f"Exporting frames of {video_path}...")
     #     export_frames(video_path)
 
     all_hp_data: dict[str, list[float]] = {}
@@ -167,13 +200,14 @@ def main() -> None:
 
         hp_data = load_hp_data_raw(video_name)
         hp_data = sanitize_hp_data(hp_data)
-        hp_data = transform_hp_data(hp_data)
+        hp_data = smooth_hp_data(hp_data)
+        hp_data = data_times_100(hp_data)
 
         all_hp_data[name] = hp_data
         all_dps_data[name] = hp_to_dps(hp_data)
 
-    plot_data_collection(all_hp_data, "阿修羅 超級 P1 (老王) 血線變化 / Master Asura P1 HP as Alberius")
-    plot_data_collection(all_dps_data, "阿修羅 超級 P1 (老王) DPS / Master Asura P1 DPS as Alberius")
+    plot_data_collection(all_hp_data, "火寶龍 60F 血量變化 (Manual) / Flame MG 60F HP (Manual)")
+    plot_data_collection(all_dps_data, "火寶龍 60F DPS (Manual) / Flame MG 60F DPS (Manual)")
 
 
 if __name__ == '__main__':
