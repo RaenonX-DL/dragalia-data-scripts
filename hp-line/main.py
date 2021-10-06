@@ -1,4 +1,5 @@
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -120,14 +121,14 @@ def sanitize_hp_data(hp_data_raw: list[Optional[float]]) -> list[Optional[float]
 
 
 def smooth_hp_data(hp_data: list[float]) -> list[float]:
+    last_min = hp_data[0]
+
     # Ensure decreasing
     for idx in range(1, len(hp_data)):
-        prev, curr = hp_data[idx - 1], hp_data[idx]
+        if not hp_data[idx]:
+            continue  # Current data could be `None`
 
-        if not prev or not curr:
-            continue  # `prev` or `curr` could be `None`
-
-        hp_data[idx] = min(prev, curr)
+        hp_data[idx] = last_min = min(last_min, hp_data[idx])
 
     return hp_data
 
@@ -141,6 +142,9 @@ def fill_gap(data: list[Optional[float]]) -> list[float]:
             # Data point available
             if not prev_none_idx:
                 continue
+
+            if idx - prev_none_idx > 3:
+                print(f"Empty data points # > 3: {prev_none_idx} ~ {idx - 1}", file=sys.stderr)
 
             prev_available_idx = prev_none_idx - 1
             if prev_none_idx > 0:
@@ -221,12 +225,11 @@ def main() -> None:
 
     plot_data_collection(
         all_hp_data,
-        "火寶龍 60F 血量變化 (Manual) / Flame MG 60F HP (Manual)",
-        show_marker=True
+        "火寶龍 60F 血量變化 (自動 - 凍傷角) / Flame MG 60F HP (Auto - Frostbiter)"
     )
     plot_data_collection(
         all_dps_data,
-        "火寶龍 60F DPS (Manual) / Flame MG 60F DPS (Manual)"
+        "火寶龍 60F DPS (自動 - 凍傷角) / Flame MG 60F DPS (Auto - Frostbiter)"
     )
 
 
