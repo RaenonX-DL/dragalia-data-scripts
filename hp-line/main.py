@@ -9,10 +9,13 @@ import seaborn as sns
 
 PROCESS_DIR = ".process"
 
+BOSS_NAME_CHT: str = "超水牙 單機"
+
+BOSS_NAME_EN: str = "Master Ciella Solo"
+
 VIDEOS: dict[str, str] = {
-    r"D:\UserData\Videos\Streamed\Process\.Manual.HMerc.mp4-clip.mp4-audio-2.mp4-crop.mp4": "人形墨丘利 / Humanoid Mercury",
-    r"D:\UserData\Videos\Streamed\Process\.Manual.Regina.mp4-clip.mp4-audio-2.mp4-crop.mp4": "柯恩 / Regina",
-    r"D:\UserData\Videos\Streamed\Process\.Manual.SIeyasu.mp4-clip.mp4-audio-2.mp4-crop.mp4": "夏日家康 / Summer Ieyasu",
+    r"D:\UserData\Videos\Streamed\Process\.Basi.mCiella.Comp.Basi.mp4-clip.mp4-audio-2.mp4-crop.mp4": "梵斯 + 那姆 / Basileus + Gala Notte",
+    r"D:\UserData\Videos\Streamed\Process\.Basi.mCiella.Comp.GRanzal.mp4-clip.mp4-audio-2.mp4-crop.mp4": "龍絆日蘭薩弗 + 那姆 / Gala Ranzal + Gala Notte",
 }
 
 HP_RECT: tuple[int, int, int, int] = (212, 77, 712, 82)  # LT-X, LT-Y, RB-X, RB-Y
@@ -225,11 +228,11 @@ def main() -> None:
 
     plot_data_collection(
         all_hp_data,
-        "火寶龍 60F 血量變化 (自動 - 凍傷角) / Flame MG 60F HP (Auto - Frostbiter)"
+        f"{BOSS_NAME_CHT} 血量變化 / {BOSS_NAME_EN} HP"
     )
     plot_data_collection(
         all_dps_data,
-        "火寶龍 60F DPS (自動 - 凍傷角) / Flame MG 60F DPS (Auto - Frostbiter)"
+        f"{BOSS_NAME_CHT} DPS / {BOSS_NAME_EN} DPS"
     )
 
 
