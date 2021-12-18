@@ -9,19 +9,24 @@ import seaborn as sns
 
 PROCESS_DIR = ".process"
 
-BOSS_NAME_CHT: str = "超水牙 單機"
+BOSS_NAME_CHT: str = "風寶龍 70F"
 
-BOSS_NAME_EN: str = "Master Ciella Solo"
+BOSS_NAME_EN: str = "Wind MG 70F"
 
 VIDEOS: dict[str, str] = {
-    r"D:\UserData\Videos\Streamed\Process\.Basi.mCiella.Comp.Basi.mp4-clip.mp4-audio-2.mp4-crop.mp4": "梵斯 + 那姆 / Basileus + Gala Notte",
-    r"D:\UserData\Videos\Streamed\Process\.Basi.mCiella.Comp.GRanzal.mp4-clip.mp4-audio-2.mp4-crop.mp4": "龍絆日蘭薩弗 + 那姆 / Gala Ranzal + Gala Notte",
+    r"D:\UserData\Videos\Streamed\Process\.AO.MG.AO.mp4-clip.mp4-crop.mp4": "火牙 / A&O",
+    r"D:\UserData\Videos\Streamed\Process\.AO.MG.Gatov.mp4-clip.mp4-crop.mp4": "葛托夫 / Gatov",
 }
+
+MAX_HP_DATA_GAP = 0.1
+
+DPS_START = 0
+DPS_END = 70
 
 HP_RECT: tuple[int, int, int, int] = (212, 77, 712, 82)  # LT-X, LT-Y, RB-X, RB-Y
 HP_WIDTH: int = HP_RECT[2] - HP_RECT[0]
 
-REDNESS_THRESHOLD = 190
+REDNESS_THRESHOLD = 170
 
 Color = tuple[int, int, int]  # RGB
 
@@ -33,6 +38,10 @@ def get_video_name(video_path: str) -> str:
 def export_frames(video_path: str) -> None:
     # Create export directory
     image_dir = os.path.join(PROCESS_DIR, get_video_name(video_path))
+
+    if os.path.exists(image_dir):
+        return
+
     os.makedirs(image_dir, exist_ok=True)
 
     os.system(f"ffmpeg -i {video_path} -r 1 {image_dir}/%d.png")
@@ -72,9 +81,6 @@ def load_hp_of_index(video_name: str, index: int) -> Optional[float]:
     image_path = os.path.join(PROCESS_DIR, video_name, f"{index}.png")
 
     with Image.open(image_path) as image:
-        if not is_hp_bar_available(image):
-            return None
-
         for x in range(HP_RECT[2], HP_RECT[0] - 1, -1):
             if get_redness(image.getpixel((x, HP_RECT[3]))) < REDNESS_THRESHOLD:
                 continue
@@ -123,14 +129,29 @@ def sanitize_hp_data(hp_data_raw: list[Optional[float]]) -> list[Optional[float]
     return hp_data_stripped
 
 
-def smooth_hp_data(hp_data: list[float]) -> list[float]:
+def smooth_hp_data(hp_data: list[Optional[float]]) -> list[Optional[float]]:
     last_min = hp_data[0]
+    prev_outlier = False
 
     # Ensure decreasing
     for idx in range(1, len(hp_data)):
         if not hp_data[idx]:
             continue  # Current data could be `None`
 
+        if abs(last_min - hp_data[idx]) > MAX_HP_DATA_GAP:
+            print(
+                f"Large HP data gap found at index #{idx:>3}: {abs(last_min - hp_data[idx]):5.3f}",
+                file=sys.stderr
+            )
+
+            if prev_outlier:
+                last_min = hp_data[idx]
+
+            prev_outlier = not prev_outlier
+            hp_data[idx] = None
+            continue  # Potential outlier data
+
+        prev_outlier = False
         hp_data[idx] = last_min = min(last_min, hp_data[idx])
 
     return hp_data
@@ -147,7 +168,8 @@ def fill_gap(data: list[Optional[float]]) -> list[float]:
                 continue
 
             if idx - prev_none_idx > 3:
-                print(f"Empty data points # > 3: {prev_none_idx} ~ {idx - 1}", file=sys.stderr)
+                print(f"Empty data points # > 3 ({idx - prev_none_idx}): "
+                      f"{prev_none_idx} ~ {idx - 1}", file=sys.stderr)
 
             prev_available_idx = prev_none_idx - 1
             if prev_none_idx > 0:
@@ -165,6 +187,9 @@ def fill_gap(data: list[Optional[float]]) -> list[float]:
         # Data point unavailable
         if prev_none_idx is None:  # First unavailable data point, record it
             prev_none_idx = idx
+
+    while not data[-1]:
+        data.pop(-1)
 
     return data
 
@@ -208,9 +233,9 @@ def plot_data_collection(
 
 
 def main() -> None:
-    # for video_path in VIDEOS.keys():
-    #     print(f"Exporting frames of {video_path}...")
-    #     export_frames(video_path)
+    for video_path in VIDEOS.keys():
+        print(f"Exporting frames of {video_path}...")
+        export_frames(video_path)
 
     all_hp_data: dict[str, list[Optional[float]]] = {}
     all_dps_data: dict[str, list[float]] = {}
@@ -226,13 +251,20 @@ def main() -> None:
         all_hp_data[name] = hp_data
         all_dps_data[name] = hp_to_dps(hp_data)
 
-    plot_data_collection(
-        all_hp_data,
-        f"{BOSS_NAME_CHT} 血量變化 / {BOSS_NAME_EN} HP"
-    )
+    for name, hp_data in all_hp_data.items():
+        print(f"{name}: Ends at {hp_data[-1]}")
+
+        frame = all_dps_data[name][DPS_START:DPS_END]
+
+        print(f"{name}: DPS avg ({DPS_START} ~ {DPS_END}) {sum(frame) / len(frame):.4f}")
+
     plot_data_collection(
         all_dps_data,
         f"{BOSS_NAME_CHT} DPS / {BOSS_NAME_EN} DPS"
+    )
+    plot_data_collection(
+        all_hp_data,
+        f"{BOSS_NAME_CHT} 血量變化 / {BOSS_NAME_EN} HP"
     )
 
 
