@@ -1,3 +1,5 @@
 Pillow
 matplotlib
 seaborn
+
+pytesseract

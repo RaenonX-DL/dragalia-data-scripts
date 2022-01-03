@@ -7,4 +7,4 @@ venv/
 
 # Script-generated files
 download-all-assets/downloaded
-hp-line/.process
+**/.process

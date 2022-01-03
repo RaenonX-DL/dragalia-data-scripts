@@ -14,19 +14,20 @@ BOSS_NAME_CHT: str = "風寶龍 70F"
 BOSS_NAME_EN: str = "Wind MG 70F"
 
 VIDEOS: dict[str, str] = {
-    r"D:\UserData\Videos\Streamed\Process\.AO.MG.AO.mp4-clip.mp4-crop.mp4": "火牙 / A&O",
+    r"D:\UserData\Videos\Streamed\Process\.AO.MG.AO.mp4-clip.mp4-crop.mp4": "火牙 (瑪斯) / A&O (Mars)",
+    r"D:\UserData\Videos\Streamed\Process\.AO.MG.AO.Agni.mp4-clip.mp4-crop.mp4": "火牙 (R70) / A&O (Agni)",
     r"D:\UserData\Videos\Streamed\Process\.AO.MG.Gatov.mp4-clip.mp4-crop.mp4": "葛托夫 / Gatov",
 }
 
 MAX_HP_DATA_GAP = 0.1
 
-DPS_START = 0
-DPS_END = 70
+DPS_START = 10
+DPS_END = 170
 
 HP_RECT: tuple[int, int, int, int] = (212, 77, 712, 82)  # LT-X, LT-Y, RB-X, RB-Y
 HP_WIDTH: int = HP_RECT[2] - HP_RECT[0]
 
-REDNESS_THRESHOLD = 170
+REDNESS_THRESHOLD = 185
 
 Color = tuple[int, int, int]  # RGB
 
