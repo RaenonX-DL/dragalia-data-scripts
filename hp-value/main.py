@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from PIL import Image
+from PIL import Image, ImageDraw
 import pytesseract
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -24,26 +24,25 @@ class Video:
 
     def __post_init__(self):
         self.name = os.path.basename(self.path)
-        self.total_damage = (
+        self.total_damage = int(
             self.hp_mapping_fn(self.total_damage_override)
             if self.total_damage_override and self.hp_mapping_fn
-            else self.total_damage_override
+            else (self.total_damage_override or 0)
         )
 
 
 VIDEOS: list[Video] = [
     Video(
-        path=r"D:\UserData\Videos\Streamed\Process\.YK.GChelle.mp4-clip.mp4-crop.mp4",
-        label="三姊 / Gala Chelle", total_damage_override=None,
-        hp_mapping_fn=lambda val: val / 1.2,
+        path=r"D:\UserData\Videos\Streamed\Process\Emile.mp4-crop.mp4",
+        label="埃米爾 / Gala Emile", total_damage_override=4630999,
     ),
     Video(
-        path=r"D:\UserData\Videos\Streamed\Process\.YK.GZethia.mp4-clip.mp4-crop.mp4",
-        label="龍絆日潔西雅 / Gala Zethia", total_damage_override=5367798
+        path=r"D:\UserData\Videos\Streamed\Process\Ieyasu.mp4-crop.mp4",
+        label="夏日家康 (變龍) / Summer Ieyasu (Shapeshift)", total_damage_override=7606508,
     ),
     Video(
-        path=r"D:\UserData\Videos\Streamed\Process\.YK.YK.mp4-clip.mp4-crop.mp4",
-        label="幸村 / Yukimura", total_damage_override=5441005
+        path=r"D:\UserData\Videos\Streamed\Process\IeyasuNoD.mp4-clip.mp4-crop.mp4",
+        label="夏日家康 (不變龍) / Summer Ieyasu", total_damage_override=5666454,
     ),
 ]
 
@@ -103,18 +102,6 @@ def load_data_of_frame(video: Video, index: int) -> DataOnFrame:
         hp = video.hp_mapping_fn(hp)
 
     return DataOnFrame(hp=hp, timer_sec=timer_sec)
-
-
-def load_hp_of_result(video: Video) -> Optional[float]:
-    image_path = os.path.join(PROCESS_DIR, video.name, f"last.png")
-
-    with Image.open(image_path) as image:
-        result_hp = ocr_num(image, HP_RECT_RESULT, config="--psm 7")
-
-    if result_hp and video.hp_mapping_fn:
-        result_hp = video.hp_mapping_fn(result_hp)
-
-    return result_hp
 
 
 def load_frame_data(video: Video) -> list[DataOnFrame]:
@@ -182,7 +169,7 @@ def smooth_frame_data(frame_data: list[DataOnFrame]) -> list[DataOnFrame]:
             )
 
             if prev_outlier:
-                last_max = frame_data[idx]
+                last_max = frame_data[idx].hp
 
             prev_outlier = not prev_outlier
             frame_data[idx].hp = None
@@ -273,6 +260,17 @@ def plot_data_collection(
     plt.show()
 
 
+def show_final_hp_result(video: Video):
+    image_path = os.path.join(PROCESS_DIR, video.name, f"last.png")
+
+    with Image.open(image_path) as image:
+        image = image.crop(HP_RECT_RESULT)
+        draw = ImageDraw.Draw(image)
+        draw.text((5, 5), video.name, (255, 255, 255))
+        plt.imshow(image)
+        plt.show()
+
+
 def main() -> None:
     for video in VIDEOS:
         print(f"Exporting frames of {video.path}...")
@@ -285,13 +283,17 @@ def main() -> None:
         frame_data = load_frame_data(video)
         frame_data = sanitize_frame_data(frame_data)
         frame_data = smooth_frame_data(frame_data)
+        # May have starting or trailing outlier to be removed
+        frame_data = sanitize_frame_data(frame_data)
 
-        name_key = f"{video.label} (Damage: {video.total_damage or int(load_hp_of_result(video) or 0)})"
+        name_key = f"{video.label} (Damage: {video.total_damage or 'N/A'})"
 
         frame_data_hp_to_k(frame_data)
 
         all_damage_data[name_key] = frame_data
         all_dps_data[name_key] = hp_to_dps(frame_data)
+
+        show_final_hp_result(video)
 
     for name, frame_data in all_damage_data.items():
         frame = all_dps_data[name][DPS_START:DPS_END]
@@ -304,7 +306,7 @@ def main() -> None:
             name: [frame_data_single.hp for frame_data_single in frame_data]
             for name, frame_data in all_damage_data.items()
         },
-        "總傷害 /Total Damage"
+        "總傷害 / Total Damage"
     )
 
 
