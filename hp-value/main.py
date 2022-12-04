@@ -33,18 +33,33 @@ class Video:
 
 VIDEOS: list[Video] = [
     Video(
-        path=r"D:\UserData\Videos\Streamed\Process\Emile.mp4-crop.mp4",
-        label="埃米爾 / Gala Emile", total_damage_override=4630999,
+        path=r"D:\UserData\Videos\Streamed\Process\.PharesDPS.mp4-clip.mp4-crop.mp4",
+        label="二哥", total_damage_override=6256474,
     ),
     Video(
-        path=r"D:\UserData\Videos\Streamed\Process\Ieyasu.mp4-crop.mp4",
-        label="夏日家康 (變龍) / Summer Ieyasu (Shapeshift)", total_damage_override=7606508,
-    ),
-    Video(
-        path=r"D:\UserData\Videos\Streamed\Process\IeyasuNoD.mp4-clip.mp4-crop.mp4",
-        label="夏日家康 (不變龍) / Summer Ieyasu", total_damage_override=5666454,
+        path=r"D:\UserData\Videos\Streamed\Process\.PharesDPSNotte.mp4-clip.mp4-crop.mp4",
+        label="那姆", total_damage_override=7674569,
     ),
 ]
+
+# VIDEOS: list[Video] = [
+#     Video(
+#         path=r"D:\UserData\Videos\Streamed\Process\.ValyxD.mp4-clip.mp4-crop.mp4",
+#         label="四哥 - 變龍", total_damage_override=7748694,
+#     ),
+#     Video(
+#         path=r"D:\UserData\Videos\Streamed\Process\.ValyxGAudricChronos.mp4-clip.mp4-crop.mp4",
+#         label="老爸 - 變龍", total_damage_override=8736042,
+#     ),
+#     Video(
+#         path=r"D:\UserData\Videos\Streamed\Process\.ValyxGAudricNoD.mp4-clip.mp4-crop.mp4",
+#         label="老爸 - 不龍", total_damage_override=5925266,
+#     ),
+#     Video(
+#         path=r"D:\UserData\Videos\Streamed\Process\.ValyxGLucaChronos.mp4-clip.mp4-crop.mp4",
+#         label="琉卡刀 - 變龍", total_damage_override=9159795,
+#     ),
+# ]
 
 DPS_START = 10
 DPS_END = 170
@@ -162,9 +177,14 @@ def smooth_frame_data(frame_data: list[DataOnFrame]) -> list[DataOnFrame]:
         if not frame_data[idx].hp:
             continue  # Current HP data could be `None`
 
+        if frame_data[idx].hp < last_max:
+            frame_data[idx].hp = None
+            print(f"HP Decreasing at index #{idx}", file=sys.stderr)
+            continue
+
         if abs(last_max - frame_data[idx].hp) > 1000000:
             print(
-                f"Large HP data gap found at index #{idx:>3}: {abs(last_max - frame_data[idx].hp):5.3f}",
+                f"Large HP data gap found at index #{idx}: {abs(last_max - frame_data[idx].hp):5.3f}",
                 file=sys.stderr
             )
 
